@@ -1,0 +1,23 @@
+{
+  "name": "study-faust-js-compiler",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tomoyanonymous/study-faust-js-compiler.git"
+  },
+  "author": "Tomoya Matsuura",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tomoyanonymous/study-faust-js-compiler/issues"
+  },
+  "homepage": "https://github.com/tomoyanonymous/study-faust-js-compiler#readme",
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "mocha": "^6.1.4"
+  }
+}
