@@ -1,100 +1,111 @@
 const util = require('util')
+const P = require('parsimmon')
+const Pmath = require('./math.js')
 
-
-const res_parser =(res,content,pos)=> {
-    return {
-        "result":res,
-        "content":content,
-        "pos":pos
-    }
-}
-
-const parser = (str)=>{
-    return res
-}
-
-const success = (parseres,parseinput)=>{
-    return [parseres,parseinput]
-}
-const fail =(parseinput)=>{
-    return []
-}
-
-//test char=>boolean
-const satisfy = (testfunction)=>{
-    return (input)=>{
-        if(input.length === 0) {
-            return fail(input)
-        }else if(testfunction(input[0])){
-            return success(input[0], input.slice(1))
-        }else{
-            return fail(input)
-        }
-    }
-}
-
-const parseABCD = satisfy(x => ["a", "b", "c", "d"].includes(x));
-const str = ("asdf").split("")
-const g_res = parseABCD(str)
-console.log(JSON.stringify(g_res))
-
-const p_character = (c) => {
-    return satisfy(x => x === c);
-}
-
-const p_then = (p_first,p_second)=>{
-    return input =>
-    flatMap(
-      first(input),
-      ([r, remainder]) =>
-        second(remainder).map(
-          ([s, secondRemainder]) => [[r, s], secondRemainder]))
-
-}
-
-const lazyThen = (p_first,p_second)=>{
-    return input => then(first(), second())(input);
-}
-
-const p_map = (fn,parser)=>{
-    return input =>
-    parser(input).map(([result, remaining]) => [fn(result), remaining]);
-}
-
-
-const p_OR = (p_left,p_right)=>{
-    return input => p_left(input).concat(p_right(input))
-}
-
-class ParenPair {
-    // contents: ParenPair | One;
-    constructor(contents) {
-      this.contents = contents;
-    }
+function token(parser) {
+    return parser.skip(P.optWhitespace);
   }
   
-class One {};
-
-const parenOne = parser => {
-    p_OR(
-    p_map(
-        ([openParen, [contents, closeParen]]) => new ParenPair(contents),
-        p_then(p_character("("), lazyThen(() => parenOne, () => p_character(")")))),
-      p_map(
-        _ => new One(),
-        p_character("1"))
-    )
+function word(str) {
+    return P.string(str).thru(token);
 }
 
-g_input = "((1))".split("")
-console.log( p_character("(")(g_input))
+let     FaustTable = [
+  { type: Pmath.PREFIX, ops: Pmath.operators({ Negate: "-" }) },
+  { type: Pmath.POSTFIX, ops: Pmath.operators({ Delay: "'" }) },
+  { type: Pmath.BINARY_RIGHT, ops: Pmath.operators({ Exponentiate: "^" }) },
+  { type: Pmath.BINARY_LEFT, ops: Pmath.operators({ Multiply: "*", Divide: "/" }) },
+  { type: Pmath.BINARY_LEFT, ops: Pmath.operators({ Add: "+", Subtract: "-" }) },
+  { type: Pmath.BINARY_LEFT, ops: Pmath.operators({ Recursive: "~"}) },
+  { type: Pmath.BINARY_LEFT, ops: Pmath.operators({ Parallel: "," }) },
+  { type: Pmath.BINARY_LEFT, ops: Pmath.operators({ Sequencial: ":" }) },
+  { type: Pmath.BINARY_LEFT, ops: Pmath.operators({ Split: "<:" ,Merge:":>"}) }
+]
+const FaustParser = P.createLanguage({
+    Comma:()=>word(","),
+    Value: (r)=> {
+      return P.alt(
+        r.Number,
+        r.Symbol
+      );
+    },       
+    Number: ()=> 
+      P.regexp(/-?(0|[1-9][0-9]*)([.][0-9]+)?/)
+      .map(Number).
+      desc("number"),
+    Symbol: ()=> 
+     P.regexp(/[a-z]+/),
+    Identifier:(r)=>
+    r.Symbol,
+    Parallel: (r)=>
+    Pmath.BINARY_LEFT(word(","),r.Recursive).desc("Parallel"),
 
+    Sequencial: (r)=>
+    Pmath.BINARY_LEFT(word(":"),r.Parallel).desc("Sequencial"),
 
-console.log(util.inspect(parenOne("((1))".split("")), { depth: null }));
+    Splitmerge: (r)=> 
+    Pmath.BINARY_LEFT(P.alt(r.Split,r.Merge),r.Sequencial),
 
-const src = "processprocess = 1+2~3*4;"
+    Split: (r)=>
+            word("<:").desc("Split"),  
+    Merge: (r)=>
+            word(":>").desc("Merge"),  
 
-// console.log(token("process")(src,0))
-// console.log(token("process")(src,1))
+    Recursive: (r)=>
+      Pmath.BINARY_LEFT(word("~"),r.Basic).desc("Recursive"),
 
+    tableParser : (r)=>{
+
+      console.log(FaustTable);
+      FaustTable.reduce(
+      (acc, level) => level.type(level.ops, acc),r.Composition)},
+    BlockDiagram:(r)=>
+      r.Splitmerge
+      .trim(P.optWhitespace)
+      .desc("composition"),
+    Basic:(r)=>
+      word("(").then(r.BlockDiagram).skip(word(")")).or(r.Expression),
+    Expression:(r)=>
+    r.OneDelay.trim(P.optWhitespace).desc("expression"),
+    OneDelay:(r)=>
+    Pmath.POSTFIX(word("'"),r.FixedDelay).desc("One-Delay"),
+    FixedDelay:(r)=>
+    Pmath.BINARY_LEFT(word("@"),r.Multiples).desc("Delay"),
+    Multiples:(r)=>
+    Pmath.BINARY_LEFT(P.alt(P.oneOf("*/%&^"),word("<<"),word(">>")),r.Multiples2).desc("Multiples"),
+    Multiples2:(r)=>
+    Pmath.BINARY_LEFT(P.oneOf("+-|"),r.Comparison).desc("Multiples2"),
+    Comparison:(r)=>
+    Pmath.BINARY_LEFT(
+      P.alt(
+      word("<="),
+      word(">="),
+      word("=="),
+      word("!="),
+      word("<"),
+      word(">"),
+
+    ),r.Value).desc("Multiples2"),
+    Definition:(r)=>
+       P.seq(word("process="),r.BlockDiagram.skip(word(";"))).or(
+        P.seq(r.Identifier,word("(").then(r.Identifier.sepBy(word(",")).skip(word(")"))),word("="),r.BlockDiagram).skip(word(";"))
+       )
+
+    });
+
+function prettyPrint(x) {
+  let opts = { depth: null, colors: "auto" };
+  let s = util.inspect(x, opts);
+  console.log(s);
+}
 let data  = []
+let text = `\
+func(a,v)=12~(3<:4+4,hoge);
+`;
+let text2 = `\
+process=12~3<:4+4,hoge;
+`;
+  let ast = FaustParser.Definition.tryParse(text);
+  prettyPrint(ast);  
+ ast = FaustParser.Definition.tryParse(text2);
+  prettyPrint(ast);  
