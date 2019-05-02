@@ -87,18 +87,14 @@ const FaustParser = P.createLanguage({
     ),r.Value).desc("Multiples2"),
 
     Fcall:(r)=>
-    P.seqObj(
-      ['fcall', r.Identifier],
-      r.lparen,
-      ['args', r.Value.trim(r._).sepBy(r.comma)],
-      r.rparen),
+    P.seqMap(r.Identifier.skip(r.lparen),r.Value.trim(r._).sepBy(r.comma).skip(r.rparen),(id,args)=>['fcall',id,args]),
     Definition:(r)=>
-      P.seqObj(
-       ['Identifier',P.alt(r.Fcall,r.Identifier)],
-       ['BlockDiagram',word("=").then(r.BlockDiagram).skip(word(";"))]
-      ),
+      P.seqMap(P.alt(r.Fcall,r.Identifier),word("="),r.BlockDiagram,(first,eq,second)=>[eq,first,second]).skip(word(";")),
     MainParser:(r)=>
-      r.Definition.many()
+      P.seqObj(
+        ['Definition',r.Definition]
+      ).many()
+      
 
     });
 
@@ -107,15 +103,6 @@ function prettyPrint(x) {
   let s = util.inspect(x, opts);
   console.log(s);
 }
-let data  = []
-let text = `\
-nice(a,v)=12~(3<:4+4,a,v);
-process=12~3<:4+4,nice(2,4);
 
-`;
-let text2 = `\
-process=12~3<:4+4,hoge;
-`;
-  let ast = FaustParser.MainParser.tryParse(text);
-  console.log(ast)
-  prettyPrint(ast);  
+exports.FaustParser = FaustParser;
+exports.prettyPrint = prettyPrint;
