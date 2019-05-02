@@ -22,7 +22,10 @@ let     FaustTable = [
   { type: Pmath.BINARY_LEFT, ops: Pmath.operators({ Split: "<:" ,Merge:":>"}) }
 ]
 const FaustParser = P.createLanguage({
-    Comma:()=>word(","),
+    comma:()=>word(","),
+    lparen:()=>word("("),
+    rparen:()=>word(")"),
+    _:()=>P.optWhitespace,
     Value: (r)=> {
       return P.alt(
         r.Number,
@@ -54,17 +57,13 @@ const FaustParser = P.createLanguage({
     Recursive: (r)=>
       Pmath.BINARY_LEFT(word("~"),r.Basic).desc("Recursive"),
 
-    tableParser : (r)=>{
 
-      console.log(FaustTable);
-      FaustTable.reduce(
-      (acc, level) => level.type(level.ops, acc),r.Composition)},
     BlockDiagram:(r)=>
       r.Splitmerge
       .trim(P.optWhitespace)
       .desc("composition"),
     Basic:(r)=>
-      word("(").then(r.BlockDiagram).skip(word(")")).or(r.Expression),
+      r.lparen.then(r.BlockDiagram).skip(r.rparen).or(P.alt(r.Fcall,r.Expression)),
     Expression:(r)=>
     r.OneDelay.trim(P.optWhitespace).desc("expression"),
     OneDelay:(r)=>
@@ -86,10 +85,20 @@ const FaustParser = P.createLanguage({
       word(">"),
 
     ),r.Value).desc("Multiples2"),
+
+    Fcall:(r)=>
+    P.seqObj(
+      ['fcall', r.Identifier],
+      r.lparen,
+      ['args', r.Value.trim(r._).sepBy(r.comma)],
+      r.rparen),
     Definition:(r)=>
-       P.seq(word("process="),r.BlockDiagram.skip(word(";"))).or(
-        P.seq(r.Identifier,word("(").then(r.Identifier.sepBy(word(",")).skip(word(")"))),word("="),r.BlockDiagram).skip(word(";"))
-       )
+      P.seqObj(
+       ['Identifier',P.alt(r.Fcall,r.Identifier)],
+       ['BlockDiagram',word("=").then(r.BlockDiagram).skip(word(";"))]
+      ),
+    MainParser:(r)=>
+      r.Definition.many()
 
     });
 
@@ -100,12 +109,13 @@ function prettyPrint(x) {
 }
 let data  = []
 let text = `\
-func(a,v)=12~(3<:4+4,hoge);
+nice(a,v)=12~(3<:4+4,a,v);
+process=12~3<:4+4,nice(2,4);
+
 `;
 let text2 = `\
 process=12~3<:4+4,hoge;
 `;
-  let ast = FaustParser.Definition.tryParse(text);
-  prettyPrint(ast);  
- ast = FaustParser.Definition.tryParse(text2);
+  let ast = FaustParser.MainParser.tryParse(text);
+  console.log(ast)
   prettyPrint(ast);  
