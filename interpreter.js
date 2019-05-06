@@ -19,7 +19,7 @@ fcall(name,args){
         return {
             'inputs': func.inputs-args.length,
             'outputs': func.outputs,
-            'fn': func.fn.apply(null,args)
+            'fn': func.fn.bind(args)
         }
     }
     } catch (error) {
