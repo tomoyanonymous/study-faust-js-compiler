@@ -1,5 +1,6 @@
 const util = require('util')
 const P = require('parsimmon')
+
 const Pmath = require('./math.js')
 
 function token(parser) {
@@ -34,14 +35,14 @@ const FaustParser = P.createLanguage({
     },       
     Number: ()=> 
       P.regexp(/-?(0|[1-9][0-9]*)([.][0-9]+)?/)
-      .map(Number).
+      .map( (x)=>['constant',Number(x)] ).
       desc("number"),
     Symbol: ()=> 
      P.regexp(/[a-z]+/),
     Identifier:(r)=>
     r.Symbol,
     Parallel: (r)=>
-    Pmath.BINARY_LEFT(word(","),r.Recursive).desc("Parallel"),
+   Pmath.BINARY_LEFT(word(","),r.Recursive).desc("Parallel"),
 
     Sequencial: (r)=>
     Pmath.BINARY_LEFT(word(":"),r.Parallel).desc("Sequencial"),
@@ -86,13 +87,16 @@ const FaustParser = P.createLanguage({
 
     ),r.Value).desc("Multiples2"),
 
+
     Fcall:(r)=>
     P.seqMap(r.Identifier.skip(r.lparen),r.Value.trim(r._).sepBy(r.comma).skip(r.rparen),(id,args)=>['fcall',id,args]),
-    Definition:(r)=>
-      P.seqMap(P.alt(r.Fcall,r.Identifier),word("="),r.BlockDiagram,(first,eq,second)=>[eq,first,second]).skip(word(";")),
+    Fdef:(r)=>P.seqMap(r.Identifier.skip(r.lparen),r.Value.trim(r._).sepBy(r.comma).skip(r.rparen),word("="),r.BlockDiagram,(ident,args,eq,assignee)=>['fdef',ident,args,assignee]).skip(word(";")),
+    Assign:(r)=>
+      P.seqMap(r.Identifier,word("="),r.BlockDiagram,(first,eq,second)=>['assign',first,second]).skip(word(";")),
     MainParser:(r)=>
-      P.seqObj(
-        ['Definition',r.Definition]
+      P.alt(
+        r.Assign,
+        r.Fdef
       ).many()
       
 
