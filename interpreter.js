@@ -1,24 +1,25 @@
 const generator = require("./generator")
 
 class Environment{
-    constructor(){
-
+    constructor(parent){
+        this.parent = parent
     }
 
-    empty(name){
-        return undefined;
+    register(name,value){
+        return this[name]=value;
     }
-    lookup(name,environment){
-        return environment(name)
-    }
-    extend(name, value,env){
-        return (qidentifier)=>{
-            if(name===qidentifier){
-                return value
-            }else{
-                return this.lookup(qidentifier,env)
-            }
+    lookup(name){
+       if(this[name]){
+            return this[name]
+        }else if (this.parent!==null){
+           return  this.parent.lookup(name)
+        }else {
+            return null
         }
+    }
+    extend(){
+        const childenv = new Environment(this)
+        return childenv
     }
 }
 
@@ -26,26 +27,11 @@ module.exports=  class Interpreter{
 constructor(){
     const fdeftable = new generator(null)
     this.ftable = fdeftable.gettable()
-    this.env= new Environment
-    this.function_env={}
+    this.env= new Environment(null)
+    this.currentenv = this.env
 }
 
-fcall(name,args){
-    try {
-    var func = this.env[name]
-    if(!func){
-        throw new Error(`function ${fname} is not defined`)
-    }else{
-        return {
-            'inputs': func.inputs-args.length,
-            'outputs': func.outputs,
-            'fn': func.fn.bind(args)
-        }
-    }
-    } catch (error) {
-        console.error(error)
-    }
-}
+
 
 assign(ast1,ast2){
     var label = ast1
@@ -56,32 +42,38 @@ assign(ast1,ast2){
 ccall(op,ast1,ast2){
     switch (op) {
         case ",":
-            this.c_par(ast1,ast2)
+            return this.c_par(ast1,ast2)
             break;
         case ":":
-            this.c_seq(ast1,ast2)
+            return this.c_seq(ast1,ast2)
             break;
         case "<:":
-            this.c_split(ast1,ast2)
+            return this.c_split(ast1,ast2)
             break;
         case ":>":
-        this.c_merge(ast1,ast2)    
+            return this.c_merge(ast1,ast2)    
             break;
         case "~":
-        this.c_req(ast1,ast2)
+            return this.c_req(ast1,ast2)
         break
         default:
             break;
     }
 }
-
+fun_par(args,_fn1,_fn2,ins1,ins2){
+    const fn1=_fn1.apply(null,args.slice(0,ins1))
+    const fn2=_fn2.apply(null,args.slice(ins1,ins1+ins2))
+    return [fn1,fn2]
+}
 c_par(a1,a2){
     const ast1 = this.interpret_ast(a1)
     const ast2 = this.interpret_ast(a2)
+    const ins = ast1['inputs']+ast2['inputs']
+    const outs= ast1['outputs']+ast2['outputs']
         return{
-        'inputs':ast1['inputs']+ast2['inputs'],
-        'outputs':ast1['outputs']+ast2['outputs'],
-        'fn':()=>[ast1['fn'],ast2['fn']]
+        'inputs':ins,
+        'outputs':outs,
+        'fn':(args)=>this.fun_par(args,ast1['fn'],ast2['fn'],ins,outs)
         }
 }
 c_seq(a1,a2){
@@ -101,7 +93,7 @@ c_seq(a1,a2){
     }
 }
 split_fn(fn1,fn2){
-    return fn2.fn.apply(Array.from({length: fn2.inputs}, (v, k) => fn1.fn[k%fn1.outputs]))
+    return fn2.fn.apply(null,Array.from({length: fn2.inputs}, (v, k) => fn1.fn[k%fn1.outputs]))
 }
 c_split(a1,a2){
     const ast1 = this.interpret_ast(a1)
@@ -178,33 +170,55 @@ c_constant(ast){
     }
 }
 search_var(ast1){
-    var label = ast1[0]
-    var varfromtable = this.env[label]
+    var label = ast1
+    var varfromtable = this.currentenv.lookup(label)
     if(varfromtable){
-        return varfromtable
-    }else  if(this.ftable[label]){
+        return this.interpret_ast(varfromtable)
+    }else if(this.ftable[label]){
         return this.ftable[label]
     }else{
         console.error("undefined symbol.")
     }
 }
-fdef(ast1,ast2,ast3){
-    var evaledast3 = this.interpret_ast(ast3)
-    if(this.env[ast1]){
-        console.error(`duplicate symbol ${ast1}`)
+
+Thunk (value) {
+    this.get = value;
+  }
+lazygetinput(fun_ast){
+    return  fun_ast;
+}
+fdef(name,args,body){
+    // newenv = new Environment(this.env)
+    if(this.currentenv.lookup(name)){
+        console.error(`duplicate symbol ${name}`)
     }
-    ast2.forEach(arg=>this.env[arg]) // currently all variables are global 
-    this.env[ast1]=
-        {
-            'inputs':evaledast3['inputs']+ast2.length,
-            'outputs':evaledast3['outputs'],
-            'fn':(ast2)=>evaledast3['fn'].apply(null,ast2)
-        }
+    this.currentenv.register(name,
+        { 'args':args ,'body':body})
     
 }
+fcall(name,args){
+    try {
+    var func = this.currentenv.lookup(name)
+    this.currentenv = this.currentenv.extend() //side effect!!!
+    func.args.forEach((arg,i)=>this.currentenv.register(arg,args[i]))
+    
+    const func_interpreted = this.interpret_ast(func.body)
+    if(!func){
+        throw new Error(`function ${fname} is not defined`)
+    }else{
+        return {
+            'inputs': func_interpreted.inputs-args.length,
+            'outputs': func_interpreted.outputs,
+            'fn': func_interpreted.fn.bind(args)
+        }
+    }
+    } catch (error) {
+        console.error(error)
+    }
+}
 // first layer of ast is array, under that is list(s-expression)
-interpret_ast(ast){
-    if(typeof(ast)!='array'){
+interpret_ast(ast,env=this.currentenv){
+    if(typeof(ast)=='number' || typeof(ast)=='string'){
         op=ast
     }else{
         var op = ast[0]
@@ -230,7 +244,7 @@ interpret_ast(ast){
             return this.c_constant(ast[1])
             break;
         default:
-            return this.search_var(ast[1])
+            return this.search_var(ast)
             break;
     }
 
@@ -240,8 +254,7 @@ compile(ast_array){
     for(var ast of ast_array){
         this.interpret_ast(ast);
     }
-       
-
+    console.log(this.env)
     if(this.env["process"]){
     return this.env["process"]
     }else{

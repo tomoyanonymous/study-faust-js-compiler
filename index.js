@@ -7,7 +7,7 @@ const fParser = parser.FaustParser.MainParser
 
 
 let text = `\
-nice(a,v)=a,v<:2,4;
+nice(a,v)=a,v<:+,*;
 
 process=nice(2,4);
 `;
