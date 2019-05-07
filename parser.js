@@ -56,17 +56,24 @@ const FaustParser = P.createLanguage({
             word(":>").desc("Merge"),  
 
     Recursive: (r)=>
-      Pmath.BINARY_LEFT(word("~"),r.Basic).desc("Recursive"),
+      Pmath.BINARY_LEFT(word("~"),r.Basicparent).desc("Recursive"),
 
 
     BlockDiagram:(r)=>
       r.Splitmerge
-      .trim(P.optWhitespace)
-      .desc("composition"),
+      .trim(r._)
+      .desc("BlockDiagram"),
+    Basicparent:(r)=>
+    P.lazy(() =>
+    P.string("(")
+      .then(r.BlockDiagram)
+      .skip(P.string(")"))
+      .or(r.Fcall).or(r.Expression)
+  ),
     Basic:(r)=>
-      r.lparen.then(r.BlockDiagram).skip(r.rparen).or(P.alt(r.Fcall,r.Expression)),
+      P.alt(r.Fcall,r.Expression),
     Expression:(r)=>
-    r.OneDelay.trim(P.optWhitespace).desc("expression"),
+    r.OneDelay.trim(r._).desc("expression"),
     OneDelay:(r)=>
     Pmath.POSTFIX(word("'"),r.FixedDelay).desc("One-Delay"),
     FixedDelay:(r)=>
@@ -85,8 +92,9 @@ const FaustParser = P.createLanguage({
       word("<"),
       word(">"),
 
-    ),r.Value).desc("Multiples2"),
-
+    ),r.Basicmath).desc("Multiples2"),
+    Basicmath:(r)=>
+    P.oneOf("+-*/%").or(r.Value),
 
     Fcall:(r)=>
     P.seqMap(r.Identifier.skip(r.lparen),r.Value.trim(r._).sepBy(r.comma).skip(r.rparen),(id,args)=>['fcall',id,args]),
