@@ -7,9 +7,9 @@ const fParser = parser.FaustParser.MainParser
 
 
 let text = `\
-nice(a,v)=12+a+v;
+nice(a,v)=a,v<:2,4;
 
-process=3,4<: 1,2 :nice(2,4);
+process=nice(2,4);
 `;
 // console.log(a)
 let ast = fParser.tryParse(text)

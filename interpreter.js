@@ -1,12 +1,32 @@
 const generator = require("./generator")
 
+class Environment{
+    constructor(){
 
+    }
+
+    empty(name){
+        return undefined;
+    }
+    lookup(name,environment){
+        return environment(name)
+    }
+    extend(name, value,env){
+        return (qidentifier)=>{
+            if(name===qidentifier){
+                return value
+            }else{
+                return this.lookup(qidentifier,env)
+            }
+        }
+    }
+}
 
 module.exports=  class Interpreter{
 constructor(){
     const fdeftable = new generator(null)
     this.ftable = fdeftable.gettable()
-    this.env={}
+    this.env= new Environment
     this.function_env={}
 }
 
@@ -173,6 +193,7 @@ fdef(ast1,ast2,ast3){
     if(this.env[ast1]){
         console.error(`duplicate symbol ${ast1}`)
     }
+    ast2.forEach(arg=>this.env[arg]) // currently all variables are global 
     this.env[ast1]=
         {
             'inputs':evaledast3['inputs']+ast2.length,
@@ -183,8 +204,11 @@ fdef(ast1,ast2,ast3){
 }
 // first layer of ast is array, under that is list(s-expression)
 interpret_ast(ast){
+    if(typeof(ast)!='array'){
+        op=ast
+    }else{
         var op = ast[0]
-
+    }
     switch (op) {
         case "fdef":
             return this.fdef(ast[1],ast[2],ast[3])
@@ -209,6 +233,7 @@ interpret_ast(ast){
             return this.search_var(ast[1])
             break;
     }
+
 
     }
 compile(ast_array){
