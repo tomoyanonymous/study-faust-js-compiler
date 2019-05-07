@@ -1,5 +1,8 @@
 const generator = require("./generator")
-
+function compose(){
+    const fns = Array.prototype.slice.call(arguments)
+    return (x)=>fns.reduceRight((v, f) => f(v), x)
+}
 class Environment{
     constructor(parent){
         this.parent = parent
@@ -60,10 +63,8 @@ ccall(op,ast1,ast2){
             break;
     }
 }
-fun_par(args,_fn1,_fn2,ins1,ins2){
-    const fn1=_fn1.apply(null,args.slice(0,ins1))
-    const fn2=_fn2.apply(null,args.slice(ins1,ins1+ins2))
-    return [fn1,fn2]
+fun_par(ins1,ins2,_fn1,_fn2){
+    return list => [_fn1(list.slice(0,ins1)),_fn2(list.slice(ins1,ins1+ins2))].flat()
 }
 c_par(a1,a2){
     const ast1 = this.interpret_ast(a1)
@@ -73,7 +74,7 @@ c_par(a1,a2){
         return{
         'inputs':ins,
         'outputs':outs,
-        'fn':(args)=>this.fun_par(args,ast1['fn'],ast2['fn'],ins,outs)
+        'fn':this.fun_par(ast1['inputs'],ast2['inputs'],ast1['fn'],ast2['fn'])
         }
 }
 c_seq(a1,a2){
@@ -86,14 +87,16 @@ c_seq(a1,a2){
         return{
             'inputs':ast1['inputs'],
             'outputs':ast2['outputs'],
-            'fn':compose(ast1['fn'],ast2['fn'])
+            'fn':compose(ast2['fn'],ast1['fn'])
             }
     } catch (e) {
         console.error(e)
     }
 }
-split_fn(fn1,fn2){
-    return fn2.fn.apply(null,Array.from({length: fn2.inputs}, (v, k) => fn1.fn[k%fn1.outputs]))
+split_fn(ins,outs){
+    //return fn :list=> list
+    return (list)=>Array.from({length:outs},(v,i)=>list[i%ins])
+
 }
 c_split(a1,a2){
     const ast1 = this.interpret_ast(a1)
@@ -105,21 +108,19 @@ c_split(a1,a2){
         return{
             'inputs':ast1['inputs'],
             'outputs':ast2['outputs'],
-            'fn': this.split_fn(ast1,ast2)
+            'fn': compose(ast2['fn'],this.split_fn(ast1['outputs'],ast2['inputs']),ast1['fn'])
             }
     } catch (e) {
         console.error(e)
     }
 }
 
-merge_fn(fn1,fn2){
-    function getinputs(k) {
-        return fn1.fn.reduce((accum,v,index)=>{
-            if(index%k){accum+v}
-        })};
-    return fn2.fn.apply(Array.from({lenth:fn2.fn.outputs}, (v,k)=>{ 
-            getinputs(k)
-        }))
+
+
+merge_fn(ins,outs){
+    sum= (list)=>list.reduce((acc,cur)=>acc+cur)
+    elem =  index => list =>sum(list.filter((v,i)=>i%outs==index))
+    return list => Array.from({length:outs},elem(index)(list))
 }
 
 c_merge(a1,a2){
@@ -129,11 +130,10 @@ c_merge(a1,a2){
         if(ast1['inputs']%ast2['outputs']!==0 && ast2['inputs']<=ast1['outputs']){
             throw new Error(`Merge Composition Error inputs:${ast2['inputs']}, outputs: ${ast2['inputs']}`)
         }
-        var res_function = ast1['fn'].reduce((acc,crt)=> null)//todo  
         return {
             'inputs':ast1['inputs'],
             'outputs':ast2['outputs'],
-            'fn':this.merge_fn(ast1,ast2)
+            'fn':compose(fn2['fn'],this.merge_fn(ast1['outputs'],ast2['inputs']),fn1['fn'])
             }
     } catch (e) {
         console.error(e)
@@ -177,7 +177,7 @@ search_var(ast1){
     }else if(this.ftable[label]){
         return this.ftable[label]
     }else{
-        console.error("undefined symbol.")
+        console.error(`undefined symbol. ${label}`)
     }
 }
 
@@ -196,21 +196,22 @@ fdef(name,args,body){
         { 'args':args ,'body':body})
     
 }
-fcall(name,args){
+fcall(name,_args){
     try {
-    var func = this.currentenv.lookup(name)
+    const  func = this.currentenv.lookup(name)
     this.currentenv = this.currentenv.extend() //side effect!!!
+    const args = _args
     func.args.forEach((arg,i)=>this.currentenv.register(arg,args[i]))
-    
-    const func_interpreted = this.interpret_ast(func.body)
+    const func_interpreted = this.interpret_ast(func.body)//lazy evaluation part
     if(!func){
         throw new Error(`function ${fname} is not defined`)
     }else{
         return {
-            'inputs': func_interpreted.inputs-args.length,
+            'inputs': func_interpreted.inputs,
             'outputs': func_interpreted.outputs,
-            'fn': func_interpreted.fn.bind(args)
+            'fn': func_interpreted.fn.bind(args.map(x=>x[1]))//mostly constants
         }
+        this.currentenv = this.currentenv.parent //back to original context
     }
     } catch (error) {
         console.error(error)
@@ -244,7 +245,7 @@ interpret_ast(ast,env=this.currentenv){
             return this.c_constant(ast[1])
             break;
         default:
-            return this.search_var(ast)
+            return this.search_var(op)
             break;
     }
 

@@ -7,15 +7,13 @@ const fParser = parser.FaustParser.MainParser
 
 
 let text = `\
-nice(a,v)=a,v<:+,*;
+nice(hoge,fuga)=(hoge,fuga<:+,*):+;
 
-process=nice(2,4);
+process=nice(3,6),(3*6);
 `;
 // console.log(a)
 let ast = fParser.tryParse(text)
 parser.prettyPrint(ast);  
 console.log(finterpreter)
 let res = finterpreter.compile(ast)
-console.log(finterpreter)
-
-console.log(res)
+console.log(res.fn([1,2,3,4]).flat())

@@ -18,52 +18,52 @@ module.exports = class FunctionDefTable{
 
     }
     add(){
-        return ([arg1,arg2])=>(arg1+arg2)
+        return ([arg1,arg2])=>([arg1+arg2])
     }
     subtract(){
-        return ([arg1,arg2])=>(arg1-arg2)
+        return ([arg1,arg2])=>([arg1-arg2])
     }
     multiply(){
-        return ([arg1,arg2])=>(arg1*arg2)
+        return ([arg1,arg2])=>([arg1*arg2])
     }
     divide(){
-        return ([arg1,arg2])=>(arg1/arg2)
+        return ([arg1,arg2])=>([arg1/arg2])
     }
     mod(){
-        return ([arg1,arg2])=>(arg1%arg2)
+        return ([arg1,arg2])=>([arg1%arg2])
     }
     bitand(){
-        return ([arg1,arg2])=>(arg1&&arg2)
+        return ([arg1,arg2])=>([arg1&&arg2])
     }
     bitor(){
-        return ([arg1,arg2])=>(arg1||arg2)
+        return ([arg1,arg2])=>([arg1||arg2])
     }
     bitxor(){
-        return ([arg1,arg2])=>(arg1^arg2)
+        return ([arg1,arg2])=>([arg1^arg2])
     }
     greater(){
-        return ([arg1,arg2])=>(Number(arg1>arg2))
+        return ([arg1,arg2])=>([Number(arg1>arg2)])
     }
     ge(){
-        return ([arg1,arg2])=>(Number(arg1>=arg2))
+        return ([arg1,arg2])=>([Number(arg1>=arg2)])
     }
     smaller(){
-        return (arg1,arg2)=>(Number(arg1<arg2))
+        return (arg1,arg2)=>([Number(arg1<arg2)])
     }
     se(){
-        return ([arg1,arg2])=>(Number(arg1<=arg2))
+        return ([arg1,arg2])=>([Number(arg1<=arg2)])
     }
     eq(){
-        return ([arg1,arg2])=>(Number(arg1==arg2))
+        return ([arg1,arg2])=>([Number(arg1==arg2)])
     }
     ne(){
-        return ([arg1,arg2])=>(Number(arg1!=arg2))
+        return ([arg1,arg2])=>([Number(arg1!=arg2)])
     }
     bitshiftr(){
-        return ([arg1,arg2])=>(arg1>>arg2)
+        return ([arg1,arg2])=>([arg1>>arg2])
     }
     bitshiftl(){
-        return ([arg1,arg2])=>(arg1<<arg2)
+        return ([arg1,arg2])=>([arg1<<arg2])
     }
     pass(){
         return (arg)=> arg
