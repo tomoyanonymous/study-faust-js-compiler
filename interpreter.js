@@ -1,7 +1,7 @@
 const generator = require("./generator")
 function compose(){
     const fns = Array.prototype.slice.call(arguments)
-    return (x)=>fns.reduceRight((v, f) => f(v), x)
+    return (x)=>fns.reduce((v, f) => f(v), x)
 }
 class Environment{
     constructor(parent){
@@ -87,7 +87,7 @@ c_seq(a1,a2){
         return{
             'inputs':ast1['inputs'],
             'outputs':ast2['outputs'],
-            'fn':compose(ast2['fn'],ast1['fn'])
+            'fn':compose(ast1['fn'],ast2['fn'])
             }
     } catch (e) {
         console.error(e)
@@ -108,7 +108,7 @@ c_split(a1,a2){
         return{
             'inputs':ast1['inputs'],
             'outputs':ast2['outputs'],
-            'fn': compose(ast2['fn'],this.split_fn(ast1['outputs'],ast2['inputs']),ast1['fn'])
+            'fn': compose(ast1['fn'],this.split_fn(ast1['outputs'],ast2['inputs']),ast2['fn'])
             }
     } catch (e) {
         console.error(e)
@@ -133,7 +133,7 @@ c_merge(a1,a2){
         return {
             'inputs':ast1['inputs'],
             'outputs':ast2['outputs'],
-            'fn':compose(fn2['fn'],this.merge_fn(ast1['outputs'],ast2['inputs']),fn1['fn'])
+            'fn':compose(fn1['fn'],this.merge_fn(ast1['outputs'],ast2['inputs']),fn2['fn'])
             }
     } catch (e) {
         console.error(e)
