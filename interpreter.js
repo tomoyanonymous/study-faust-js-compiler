@@ -100,9 +100,14 @@ c_split(a1,a2){
     }
 }
 
-split_fn(fn1,fn2){
-    fn1.apply()
-    return fn2.apply(Array.from({length: fn2.inputs}, (v, k) => fn1[k%fn1.outputs]))
+merge_fn(fn1,fn2){
+    function getinputs(k) {
+        return fn1.fn.reduce((accum,v,index)=>{
+            if(index%k){accum+v}
+        })};
+    return fn2.fn.apply(Array.from({lenth:fn2.fn.outputs}, (v,k)=>{ 
+            getinputs(k)
+        }))
 }
 
 c_merge(a1,a2){
@@ -116,12 +121,15 @@ c_merge(a1,a2){
         return {
             'inputs':ast1['inputs'],
             'outputs':ast2['outputs'],
-            'fn':null//todo
+            'fn':this.merge_fn(ast1,ast2)
             }
     } catch (e) {
         console.error(e)
     }
 }
+
+
+
 c_req(a1,a2){
     const ast1 = this.interpret_ast(a1)
     const ast2 = this.interpret_ast(a2)
