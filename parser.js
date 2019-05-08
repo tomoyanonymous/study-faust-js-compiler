@@ -94,7 +94,7 @@ const FaustParser = P.createLanguage({
 
     ),r.Basicmath).desc("Multiples2"),
     Basicmath:(r)=>
-    P.oneOf("+-*/%").or(r.Value),
+    P.oneOf("+-*/%_!").or(r.Value),
 
     Fcall:(r)=>
     P.seqMap(r.Identifier.skip(r.lparen),r.Value.trim(r._).sepBy(r.comma).skip(r.rparen),(id,args)=>['fcall',id,args]),

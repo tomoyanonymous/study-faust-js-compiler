@@ -3,16 +3,43 @@ function compose(){
     const fns = Array.prototype.slice.call(arguments)
     return (x)=>fns.reduce((v, f) => f(v), x)
 }
+class Delaypath{
+    constructor(v,fwdfn,revfn){
+        this.v= v
+        this.fwdfn=fwdfn
+        this.revfn=revfn
+    }
+    updaterev(){
+        this.v = this.revfn(this.v)
+    }
+    updatefwd(){
+        this.v = this.revfwd(this.v)
+    }
+
+}
 class Environment{
     constructor(parent){
         this.parent = parent
+        if(this.parent==null){
+        this.delayid=0; //only root has delayid
+        }
     }
 
     register(name,value){
         return this[name]=value;
     }
+    registernewvalue(value){
+        this[this.keyid]=value
+        return String(this.keyid)
+        this.keyid++
+    }
+    registernewdelay(value,funfwd,funrev){
+        this[`delay${this.delayid}`]=new Delaypath(value,funfwd,funrev)
+        return `delay${this.delayid}`
+        this.delayid++
+    }
     lookup(name){
-       if(this[name]){
+       if(this[name]!=undefined){
             return this[name]
         }else if (this.parent!==null){
            return  this.parent.lookup(name)
@@ -141,20 +168,33 @@ c_merge(a1,a2){
 }
 
 
+req_function_fwd(fnfwd,id){   
+
+    return (list)=>{
+        const del = this.currentenv.lookup(id)
+        const arg = del.v
+        const res =  fnfwd([arg,list].flat())
+        this.currentenv[id].v = res
+        return res
+    }
+}
 
 c_req(a1,a2){
     const ast1 = this.interpret_ast(a1)
     const ast2 = this.interpret_ast(a2)
     try {
-        if(ast1['inputs']>=ast2['outputs'] && ast2['inputs']>=ast1['outputs']){
+        if(ast1['inputs']<ast2['outputs'] && ast2['inputs']>ast1['outputs']){
             throw new Error(`Recursive Composition Error inputs:${ast2['inputs']}, outputs: ${ast2['inputs']}`)
         }
-        var res_function = ast1['fn'].reduce((acc,crt)=> null)//todo  
+        const ast1id = this.currentenv.registernewdelay(Array.from({length:ast2['outputs']},(x)=>0),ast1['fn'],ast2['fn'])
+        let res_function = this.req_function_fwd(ast1['fn'],ast1id)
         return {
-            'inputs':ast1['inputs'],
-            'outputs':ast2['outputs'],
-            'fn':null//todo
+            'inputs':ast1['inputs']-ast2['outputs'],
+            'outputs':ast1['outputs'],
+            'fn': res_function
             }
+            
+
     } catch (e) {
         console.error(e)
     }
@@ -206,12 +246,12 @@ fcall(name,_args){
     if(!func){
         throw new Error(`function ${fname} is not defined`)
     }else{
+        this.currentenv = this.currentenv.parent //back to original context
         return {
             'inputs': func_interpreted.inputs,
             'outputs': func_interpreted.outputs,
             'fn': func_interpreted.fn.bind(args.map(x=>x[1]))//mostly constants
         }
-        this.currentenv = this.currentenv.parent //back to original context
     }
     } catch (error) {
         console.error(error)
@@ -257,12 +297,35 @@ compile(ast_array){
     }
     console.log(this.env)
     if(this.env["process"]){
-    return this.env["process"]
+    return this.env
     }else{
         console.error("process is not defined")
     }
 
 }
+computestep(inlist){
+    const res =  this.env["process"].fn(inlist).flat()
+    for (var i=0;i<this.env.delayid+1;i++){
+        const key = `delay${i}`
+        this.env[key].updaterev()
+    }
+    return res
+}
+
+compute(nestedlist){ //[ [ch1,,,,],[ch2,,,,] ]
+    let returnarray=Array.from(nestedlist) // copy
+    for(let i =0;i< nestedlist[0].length;i++){
+        const arg = Array.from({length:nestedlist.length},(v,ch)=>nestedlist[ch][i])
+        const res= this.computestep(arg)
+
+        for(let ch =0;ch< nestedlist.length;ch++){
+            returnarray[ch][i] = res[ch]
+        }
+        
+    }
+    return returnarray;
+}
+
 
 
 

@@ -66,7 +66,7 @@ module.exports = class FunctionDefTable{
         return ([arg1,arg2])=>([arg1<<arg2])
     }
     pass(){
-        return (arg)=> arg
+        return ([arg])=>[arg]
     }
     cut(){
         return arg=>null
